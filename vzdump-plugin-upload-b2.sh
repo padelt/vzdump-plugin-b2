@@ -91,7 +91,7 @@ if [ "$1" == "backup-end" ]; then
   fi
 
   echo "REMOVING older remote backups."
-  $B2_BINARY list_file_names $B2_BUCKET | $JQ_BINARY --arg vmid $3 --arg fn "$TARBASENAME" '.files[]|select(.fileName|test(".*vzdump-qemu-"+$vmid+".*"))|select((.fileName|test(".*"+$fn+".*")==false))|"/root/bin/b2 delete_file_version "+.fileName+" "+.fileId' | xargs -n 1 -r -I % bash -c "%"
+  $B2_BINARY list_file_names $B2_BUCKET | $JQ_BINARY --arg vmid $3 --arg fn "$TARBASENAME" '.files[]|select(.fileName|test(".*vzdump-qemu-"+$vmid+".*"))|select((.fileName|test(".*"+$fn+".*")==false))|"B2_BINARY delete_file_version "+.fileName+" "+.fileId' | sed "s#B2_BINARY#$B2_BINARY#g" | xargs -n 1 -r -I % bash -c "%"
   if [ $? -ne 0 ] ; then
     echo "Something went wrong deleting old remote backups."
     exit 11
