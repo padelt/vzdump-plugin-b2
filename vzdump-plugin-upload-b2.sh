@@ -36,7 +36,7 @@ if [ "$1" == "backup-end" ]; then
   fi
 
   echo "CHECKSUMMING whole tar."
-  sha1sum "$TARFILE" >> "$TARFILE.sha1sums"
+  sha1sum -b "$TARFILE" >> "$TARFILE.sha1sums"
   if [ $? -ne 0 ] ; then
     echo "Something went wrong checksumming."
     exit 4
@@ -50,7 +50,7 @@ if [ "$1" == "backup-end" ]; then
   fi
 
   echo "CHECKSUMMING splits"
-  sha1sum $TARFILE.split.* >> "$TARFILE.sha1sums"
+  sha1sum -b $TARFILE.split.* >> "$TARFILE.sha1sums"
   if [ $? -ne 0 ] ; then
     echo "Something went wrong checksumming."
     exit 6
@@ -67,7 +67,7 @@ if [ "$1" == "backup-end" ]; then
   fi
 
   echo "Checksumming encrypted splits"
-  sha1sum $TARFILE.split.*.gpg >> "$TARFILE.sha1sums"
+  sha1sum -b $TARFILE.split.*.gpg >> "$TARFILE.sha1sums"
   if [ $? -ne 0 ] ; then
     echo "Something went wrong checksumming."
     exit 8
