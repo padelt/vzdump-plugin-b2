@@ -11,3 +11,4 @@ NUM_PARALLEL_GPG=6
 
 GPG_BINARY=/usr/bin/gpg
 B2_BINARY=/usr/local/bin/b2
+JQ_BINARY=/usr/local/bin/jq

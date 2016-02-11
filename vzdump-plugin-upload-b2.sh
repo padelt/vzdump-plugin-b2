@@ -3,14 +3,14 @@ CONFIG_FILE=$(dirname $0)/upload-b2.config
 
 . "$CONFIG_FILE"
 
-if [ -r "$CONFIG_FILE" ] ; then
+if [ ! -r "$CONFIG_FILE" ] ; then
   echo "Where is my config file? Looked in $CONFIG_FILE."
   echo "If you have none, copy the template and enter your information."
   echo "If it is somewhere else, change the second line of this script."
   exit 1
 fi
-if [ ! -x "$GPG_BINARY" ] || [ ! -x "$B2_BINARY" ] || [ -r "$GPG_PASSPHRASE_FILE" ] ; then
-  echo "Missing one of $GPG_BINARY, $B2_BINARY or $GPG_PASSPHRASE_FILE."
+if [ ! -x "$GPG_BINARY" ] || [ ! -x "$B2_BINARY" ] || [ ! -x "$JQ_BINARY" ] || [ ! -r "$GPG_PASSPHRASE_FILE" ] ; then
+  echo "Missing one of $GPG_BINARY, $B2_BINARY, $JQ_BINARY or $GPG_PASSPHRASE_FILE."
   echo "Or one of the binaries is not executable."
   echo 2
 fi
@@ -91,9 +91,9 @@ if [ "$1" == "backup-end" ]; then
   fi
 
   echo "REMOVING older remote backups."
-  $B2_BINARY list_file_names $B2_BUCKET | /root/bin/jq --arg vmid $3 --arg fn "$TARBASENAME" '.files[]|select(.fileName|test(".*vzdump-qemu-"+$vmid+".*"))|select((.fileName|test(".*"+$fn+".*")==false))|"/root/bin/b2 delete_file_version "+.fileName+" "+.fileId' | xargs -n 1 -r -I % bash -c "%"
+  $B2_BINARY list_file_names $B2_BUCKET | $JQ_BINARY --arg vmid $3 --arg fn "$TARBASENAME" '.files[]|select(.fileName|test(".*vzdump-qemu-"+$vmid+".*"))|select((.fileName|test(".*"+$fn+".*")==false))|"/root/bin/b2 delete_file_version "+.fileName+" "+.fileId' | xargs -n 1 -r -I % bash -c "%"
   if [ $? -ne 0 ] ; then
-    echo "Something went wrong deleting old versions."
+    echo "Something went wrong deleting old remote backups."
     exit 11
   fi
 
