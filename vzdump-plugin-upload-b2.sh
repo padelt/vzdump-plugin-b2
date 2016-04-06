@@ -60,7 +60,7 @@ if [ "$1" == "backup-end" ]; then
   rm "$TARFILE"
 
   echo "ENCRYPTING"
-  ls -1 $TARFILE.split.* | time xargs -I % -n 1 -P $NUM_PARALLEL_GPG $GPG_BINARY --no-tty --compress-level 0 --passphrase-file $GPG_PASSPHRASE_FILE -c --output "%.gpg" "%"
+  ls -1 $TARFILE.split.* | time xargs --verbose -I % -n 1 -P $NUM_PARALLEL_GPG $GPG_BINARY --no-tty --compress-level 0 --passphrase-file $GPG_PASSPHRASE_FILE -c --output "%.gpg" "%"
   if [ $? -ne 0 ] ; then
     echo "Something went wrong encrypting."
     exit 7
@@ -84,14 +84,14 @@ if [ "$1" == "backup-end" ]; then
   fi
 
   echo "UPLOADING to B2 with up to $NUM_PARALLEL_UPLOADS parallel uploads."
-  ls -1 $TARFILE.sha1sums $TARFILE.split.* | xargs -I % -n 1 -P $NUM_PARALLEL_UPLOADS $B2_BINARY upload_file $B2_BUCKET "%" "$B2_PATH%"
+  ls -1 $TARFILE.sha1sums $TARFILE.split.* | xargs --verbose -I % -n 1 -P $NUM_PARALLEL_UPLOADS $B2_BINARY upload_file $B2_BUCKET "%" "$B2_PATH%"
   if [ $? -ne 0 ] ; then
     echo "Something went wrong uploading."
     exit 10
   fi
 
   echo "REMOVING older remote backups."
-  $B2_BINARY list_file_names $B2_BUCKET | $JQ_BINARY --arg vmid $3 --arg fn "$TARBASENAME" '.files[]|select(.fileName|test(".*vzdump-qemu-"+$vmid+".*"))|select((.fileName|test(".*"+$fn+".*")==false))|"B2_BINARY delete_file_version "+.fileName+" "+.fileId' | sed "s#B2_BINARY#$B2_BINARY#g" | xargs -n 1 -r -I % bash -c "%"
+  $B2_BINARY list_file_names $B2_BUCKET | $JQ_BINARY --arg vmid $3 --arg fn "$TARBASENAME" '.files[]|select(.fileName|test(".*vzdump-qemu-"+$vmid+".*"))|select((.fileName|test(".*"+$fn+".*")==false))|"B2_BINARY delete_file_version "+.fileName+" "+.fileId' | sed "s#B2_BINARY#$B2_BINARY#g" | xargs --verbose -n 1 -r -I % bash -c "%"
   if [ $? -ne 0 ] ; then
     echo "Something went wrong deleting old remote backups."
     exit 11
