@@ -18,6 +18,7 @@ fi
 # Eliminate duplicate slashes. B2 does not accept those in file paths.
 TARFILE=$(sed 's#//#/#g' <<< "$TARFILE")
 TARBASENAME=$(basename "$TARFILE")
+VMID=$3
 
 #echo "PHASE: $1"
 #echo "MODE: $2"
@@ -26,6 +27,7 @@ TARBASENAME=$(basename "$TARFILE")
 #echo "DUMPDIR: $DUMPDIR"
 #echo "HOSTNAME: $HOSTNAME"
 #echo "TARFILE: $TARFILE"
+#echo "TARBASENAME: $TARBASENAME"
 #echo "LOGFILE: $LOGFILE"
 #echo "USER: `whoami`"
 
@@ -91,7 +93,19 @@ if [ "$1" == "backup-end" ]; then
   fi
 
   echo "REMOVING older remote backups."
-  $B2_BINARY list_file_names $B2_BUCKET | $JQ_BINARY --arg vmid $3 --arg fn "$TARBASENAME" '.files[]|select(.fileName|test(".*vzdump-qemu-"+$vmid+".*"))|select((.fileName|test(".*"+$fn+".*")==false))|"B2_BINARY delete_file_version "+.fileName+" "+.fileId' | sed "s#B2_BINARY#$B2_BINARY#g" | xargs --verbose -n 1 -r -I % bash -c "%"
+  DELIMITER="//" # safe since B2 does not allow double slash in filenames
+  ALLFILES=$(set -e;next="" ; while [ "$next" != "null" ] ; do echo "Getting more files starting at: $next" 1>&2; OUT=$(b2 list_file_names "$B2_BUCKET" "$next") ; next=$(echo "$OUT" | jq -r ".nextFileName") ; files=$(echo "$OUT" | jq -r '.files[]|.fileName+"'$DELIMITER'"+.fileId'); echo "$files"; done)
+  VMIDFILES=$(echo -n "$ALLFILES" |grep "vzdump-qemu-$VMID")
+  echo -n $(echo "$VMIDFILES" | wc -l)
+  echo " Files from backups with VMID $VMID:"
+  echo "$VMIDFILES"
+  OTHERVMIDFILES=$(echo -n "$VMIDFILES" | grep -v "$TARBASENAME")
+  OTHERVMIDFILESCOUNT=$(echo "$OTHERVMIDFILES" | wc -l)
+  echo "$OTHERVMIDFILESCOUNT Files from backups with VMID $VMID but not from current backup $TARBASENAME:"
+  echo "$OTHERVMIDFILES"
+  echo "Will delete $OTHERVMIDFILESCOUNT files from older backups."
+  COMMANDS=$(echo -n "$OTHERVMIDFILES" | sed -E 's#^(.+)//(.+)$#'$B2_BINARY' delete_file_version \1 \2#')
+  echo "$COMMANDS" | tr '\n' '\0' | xargs -0 -n1 -I % bash -c "%"
   if [ $? -ne 0 ] ; then
     echo "Something went wrong deleting old remote backups."
     exit 11
