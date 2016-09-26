@@ -8,6 +8,10 @@ B2_SPLITSIZE_BYTE=2000000000
 B2_PATH=`hostname`
 NUM_PARALLEL_UPLOADS=10
 NUM_PARALLEL_GPG=6
+# Secondary storage is where the unencrypted split files are stored temporarally.
+# If empty, this defaults to the dump dir.
+# This is useful if your dump directory cannot hold two copies of the backup.
+SECONDARY_STORAGE=
 
 GPG_BINARY=/usr/bin/gpg
 B2_BINARY=/usr/local/bin/b2

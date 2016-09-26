@@ -12,13 +12,15 @@ fi
 if [ ! -x "$GPG_BINARY" ] || [ ! -x "$B2_BINARY" ] || [ ! -x "$JQ_BINARY" ] || [ ! -r "$GPG_PASSPHRASE_FILE" ] ; then
   echo "Missing one of $GPG_BINARY, $B2_BINARY, $JQ_BINARY or $GPG_PASSPHRASE_FILE."
   echo "Or one of the binaries is not executable."
-  echo 2
+  exit 2
 fi
 
 # Eliminate duplicate slashes. B2 does not accept those in file paths.
 TARFILE=$(sed 's#//#/#g' <<< "$TARFILE")
 TARBASENAME=$(basename "$TARFILE")
 VMID=$3
+SECONDARY=${SECONDARY_STORAGE:-`pwd`}
+
 
 #echo "PHASE: $1"
 #echo "MODE: $2"
@@ -30,6 +32,12 @@ VMID=$3
 #echo "TARBASENAME: $TARBASENAME"
 #echo "LOGFILE: $LOGFILE"
 #echo "USER: `whoami`"
+#echo "SECONDARY: $SECONDARY"
+
+if [ ! -d "$SECONDARY" ] ; then
+  echo "Missing secondary storage path $SECONDARY. Got >$SECONDARY_STORAGE< from config file."
+  exit 12
+fi
 
 if [ "$1" == "backup-end" ]; then
   if [ ! -f $TARFILE ] ; then
@@ -45,14 +53,16 @@ if [ "$1" == "backup-end" ]; then
   fi
 
   echo "SPLITTING into chunks sized <=$B2_SPLITSIZE_BYTE byte"
-  time split --bytes=$B2_SPLITSIZE_BYTE --suffix-length=3 --numeric-suffixes "$TARFILE" "$TARFILE.split."
+  cd "$DUMPDIR"
+  time split --bytes=$B2_SPLITSIZE_BYTE --suffix-length=3 --numeric-suffixes "$TARBASENAME" "$SECONDARY/$TARBASENAME.split."
   if [ $? -ne 0 ] ; then
     echo "Something went wrong splitting."
     exit 5
   fi
 
   echo "CHECKSUMMING splits"
-  sha1sum -b $TARFILE.split.* >> "$TARFILE.sha1sums"
+  cd "$SECONDARY"
+  sha1sum -b $TARBASENAME.split.* >> "$DUMPDIR/$TARBASENAME.sha1sums"
   if [ $? -ne 0 ] ; then
     echo "Something went wrong checksumming."
     exit 6
@@ -62,21 +72,23 @@ if [ "$1" == "backup-end" ]; then
   rm "$TARFILE"
 
   echo "ENCRYPTING"
-  ls -1 $TARFILE.split.* | time xargs --verbose -I % -n 1 -P $NUM_PARALLEL_GPG $GPG_BINARY --no-tty --compress-level 0 --passphrase-file $GPG_PASSPHRASE_FILE -c --output "%.gpg" "%"
+  cd "$SECONDARY"
+  ls -1 $TARBASENAME.split.* | time xargs --verbose -I % -n 1 -P $NUM_PARALLEL_GPG $GPG_BINARY --no-tty --compress-level 0 --passphrase-file $GPG_PASSPHRASE_FILE -c --output "$DUMPDIR/%.gpg" "%"
   if [ $? -ne 0 ] ; then
     echo "Something went wrong encrypting."
     exit 7
   fi
 
   echo "Checksumming encrypted splits"
-  sha1sum -b $TARFILE.split.*.gpg >> "$TARFILE.sha1sums"
+  cd "$DUMPDIR"
+  sha1sum -b $TARBASENAME.split.*.gpg >> "$TARBASENAME.sha1sums"
   if [ $? -ne 0 ] ; then
     echo "Something went wrong checksumming."
     exit 8
   fi
 
   echo "Deleting cleartext splits"
-  rm $TARFILE.split.???
+  rm $SECONDARY/$TARBASENAME.split.???
 
   echo "AUTHORIZING AGAINST B2"
   $B2_BINARY authorize_account $B2_ACCOUNT_ID $B2_APPLICATION_KEY
