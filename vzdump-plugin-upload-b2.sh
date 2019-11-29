@@ -73,7 +73,7 @@ if [ "$1" == "backup-end" ]; then
 
   echo "ENCRYPTING"
   cd "$SECONDARY"
-  ls -1 $TARBASENAME.split.* | time xargs --verbose -I % -n 1 -P $NUM_PARALLEL_GPG $GPG_BINARY --no-tty --compress-level 0 --passphrase-file $GPG_PASSPHRASE_FILE -c --output "$DUMPDIR/%.gpg" "%"
+  ls -1 $TARBASENAME.split.* | time xargs --verbose -I % -n 1 -P $NUM_PARALLEL_GPG $GPG_BINARY --batch --no-tty --compress-level 0 --passphrase-file $GPG_PASSPHRASE_FILE -c --output "$DUMPDIR/%.gpg" "%"
   if [ $? -ne 0 ] ; then
     echo "Something went wrong encrypting."
     exit 7
@@ -106,7 +106,7 @@ if [ "$1" == "backup-end" ]; then
 
   echo "REMOVING older remote backups."
   DELIMITER="//" # safe since B2 does not allow double slash in filenames
-  ALLFILES=$(set -e;next="" ; while [ "$next" != "null" ] ; do echo "Getting more files starting at: $next" 1>&2; OUT=$(b2 list_file_names "$B2_BUCKET" "$next") ; next=$(echo "$OUT" | jq -r ".nextFileName") ; files=$(echo "$OUT" | jq -r '.files[]|.fileName+"'$DELIMITER'"+.fileId'); echo "$files"; done)
+  ALLFILES=$(set -e;next="$B2_PATH" ; while [ "$next" != "null" ] ; do echo "Getting more files starting at: $next" 1>&2; OUT=$(b2 list_file_names "$B2_BUCKET" "$next") ; next=$(echo "$OUT" | jq -r ".nextFileName") ; files=$(echo "$OUT" | jq -r '.files[]|.fileName+"'$DELIMITER'"+.fileId'); echo "$files"; done)
   VMIDFILES=$(echo -n "$ALLFILES" |grep "vzdump-qemu-$VMID")
   echo -n $(echo "$VMIDFILES" | wc -l)
   echo " Files from backups with VMID $VMID:"
